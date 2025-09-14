@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NCG THREAT MAP — NUSANTARA CYBER GUARD</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
+  <style>
+    /* === GLOBAL RESET === */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      scrollbar-width: none;
+    }
+
+    body {
+      background: #000;
+      color: #e0e0e0;
+      font-family: 'Poppins', sans-serif;
+      overflow-x: hidden;
+      height: 100vh;
+      position: relative;
+      font-smoothing: antialiased;
+      -webkit-font-smoothing: antialiased;
+      cursor: url('image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="3" fill="%2300ffff"/></svg>'), auto;
+    }
+
+    /* === LOADING SCREEN === */
+    .loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #0a0a1a 0%, #000 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      backdrop-filter: blur(10px);
+      transition: opacity 2s ease-out;
+    }
+
+    .loading-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .logo {
+      width: 140px;
+      height: 140px;
+      margin-bottom: 25px;
+      background: url('image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50,10 L90,50 L50,90 L10,50 Z" fill="%2300ffff" stroke="%2300bfff" stroke-width="2"/><circle cx="50" cy="50" r="10" fill="%2300ffff"/></svg>') no-repeat center;
+      background-size: contain;
+      animation: pulseLogo 2.5s infinite alternate;
+    }
+
+    @keyframes pulseLogo {
+      from { transform: scale(1); opacity: 0.8; }
+      to { transform: scale(1.08); opacity: 1; }
+    }
+
+    .loading-text {
+      font-family: 'Orbitron', sans-serif;
+      color: #00ffff;
+      font-size: 28px;
+      letter-spacing: 3px;
+      text-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+      margin-bottom: 20px;
+    }
+
+    .loader {
+      width: 90px;
+      height: 90px;
+      border: 4px solid rgba(0, 255, 255, 0.2);
+      border-radius: 50%;
+      border-top-color: #00ffff;
+      animation: spin 1.4s linear infinite;
+      margin-top: 25px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* === MAIN CONTAINER === */
+    .container {
+      max-width: 1800px;
+      margin: 0 auto;
+      padding: 50px 30px;
+      position: relative;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 2s ease-out;
+    }
+
+    .container.show {
+      opacity: 1;
+    }
+
+    h1 {
+      font-family: 'Orbitron', sans-serif;
+      color: #00ffff;
+      text-align: center;
+      font-size: 4rem;
+      letter-spacing: 5px;
+      text-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.7),
+        0 0 50px rgba(0, 150, 255, 0.5);
+      margin-bottom: 15px;
+      padding: 25px;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+      position: relative;
+      overflow: hidden;
+    }
+
+    h1::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #00ffff, transparent);
+      animation: underlineGlow 4s infinite;
+    }
+
+    @keyframes underlineGlow {
+      0% { background-position: -100% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #aaa;
+      font-size: 1.5rem;
+      font-weight: 300;
+      margin-bottom: 50px;
+      letter-spacing: 1.5px;
+      font-family: 'Poppins', sans-serif;
+      position: relative;
+    }
+
+    .subtitle::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #00ffff, transparent);
+      animation: glowLine 3s infinite;
+    }
+
+    @keyframes glowLine {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.8; }
+    }
+
+    /* === LED INDICATOR === */
+    #led {
+      position: fixed;
+      top: 40px;
+      right: 40px;
+      width: 28px;
+      height: 28px;
+      background: radial-gradient(circle, #ff0000, #cc0000);
+      border-radius: 50%;
+      animation: blink 0.7s infinite;
+      box-shadow: 0 0 30px rgba(255, 0, 0, 0.9), inset 0 0 12px rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      border: 1.5px solid #ff0000;
+      filter: drop-shadow(0 0 10px rgba(255, 0, 0, 0.7));
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* === BACKGROUND NEBULA + PARALLAX === */
+    #nebula {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at center, #0a0a1a 0%, #000 70%);
+      z-index: 1;
+      pointer-events: none;
+      overflow: hidden;
+      will-change: transform;
+    }
+
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle var(--duration) infinite ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.1; }
+      50% { opacity: 1; }
+    }
+
+    .nebula-particle {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 255, 255, 0.4), transparent);
+      opacity: 0.2;
+      filter: blur(15px);
+      animation: drift var(--duration) linear infinite;
+    }
+
+    @keyframes drift {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0;
+      }
+      50% {
+        opacity: 0.5;
+      }
+      100% {
+        transform: translate(var(--dx), var(--dy)) scale(1.8);
+        opacity: 0;
+      }
+    }
+
+    /* === SCROLL-BASED TIMELINE BAR === */
+    #timeline {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 8px;
+      height: 100vh;
+      background: linear-gradient(to bottom, rgba(0, 255, 255, 0), rgba(0, 255, 255, 0.1), rgba(0, 255, 255, 0.3), rgba(0, 255, 255, 0.1), rgba(0, 255, 255, 0));
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    #timeline::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -50%;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, transparent, rgba(0, 255, 255, 0.3));
+      animation: timelinePulse 5s infinite;
+    }
+
+    @keyframes timelinePulse {
+      0% { opacity: 0.3; }
+      50% { opacity: 0.7; }
+      100% { opacity: 0.3; }
+    }
+
+    .timeline-point {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: #00ffff;
+      border-radius: 50%;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    .timeline-point.active {
+      opacity: 1;
+    }
+
+    /* === PETA + ANIMASI SERANG-MENYERANG === */
+    #map {
+      height: 650px;
+      width: 100%;
+      border-radius: 30px;
+      margin-bottom: 50px;
+      border: 1px solid rgba(0, 255, 255, 0.1);
+      box-shadow: 
+        0 15px 60px rgba(0, 191, 255, 0.2),
+        inset 0 0 40px rgba(0, 255, 255, 0.05);
+      background: #000;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(20px);
+    }
+
+    /* Grid overlay */
+    #map::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(0, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 255, 0.06) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 1;
+      animation: gridWave 12s linear infinite;
+    }
+
+    @keyframes gridWave {
+      0% { background-position: 0 0; }
+      100% { background-position: 60px 60px; }
+    }
+
+    /* Shadow depth */
+    #map::after {
+      content: '';
+      position: absolute;
+      bottom: -25px;
+      left: 10%;
+      width: 80%;
+      height: 25px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(0, 255, 255, 0.15), transparent);
+      z-index: 0;
+      filter: blur(25px);
+      animation: mapShadow 8s infinite;
+    }
+
+    @keyframes mapShadow {
+      0% { opacity: 0.3; transform: translateY(0) scale(1); }
+      50% { opacity: 0.5; transform: translateY(-5px) scale(1.02); }
+      100% { opacity: 0.3; transform: translateY(0) scale(1); }
+    }
+
+    /* === SERANGAN GELOMBANG (WAVE ATTACK) === */
+    .attack-wave {
+      position: absolute;
+      border-radius: 50%;
+      border: 2px solid rgba(0, 255, 255, 0.4);
+      background: transparent;
+      pointer-events: none;
+      animation: attackWave 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      z-index: 5;
+    }
+
+    @keyframes attackWave {
+      0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0.8;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(1.8);
+        opacity: 0;
+      }
+    }
+
+    /* === ALIRAN DATA (STREAMING LINES) === */
+    .data-stream {
+      position: absolute;
+      background: linear-gradient(90deg, transparent, #00ffff, #00bfff, transparent);
+      height: 1px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 4;
+      opacity: 0.6;
+      animation: dataStream 4s linear infinite;
+    }
+
+    @keyframes dataStream {
+      0% {
+        transform: translateX(-100%) translateY(0) scale(0.5);
+        opacity: 0;
+      }
+      20% {
+        opacity: 0.8;
+      }
+      80% {
+        opacity: 0.8;
+      }
+      100% {
+        transform: translateX(100%) translateY(0) scale(0.5);
+        opacity: 0;
+      }
+    }
+
+    /* === LEDAKAN TITIK (EXPLOSION EFFECT) === */
+    .explosion {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: radial-gradient(circle, #ff0000, #cc0000, transparent);
+      border-radius: 50%;
+      box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+      pointer-events: none;
+      z-index: 6;
+      animation: explosion 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes explosion {
+      0% {
+        transform: scale(0);
+        opacity: 1;
+      }
+      40% {
+        transform: scale(1.5);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(2.5);
+        opacity: 0;
+      }
+    }
+
+    /* === EFECT HACKING IN PROGRESS === */
+    #hacking-effect {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0;
+      background: linear-gradient(
+        45deg,
+        transparent,
+        rgba(0, 255, 255, 0.05),
+        transparent
+      );
+      background-size: 200% 200%;
+      animation: hackingScan 1.5s infinite;
+    }
+
+    @keyframes hackingScan {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    #hacking-effect.active {
+      opacity: 0.3;
+    }
+
+    /* === STATISTICS CARDS === */
+    .stat-card {
+      background: rgba(15, 15, 30, 0.8);
+      border: 1px solid rgba(0, 255, 255, 0.1);
+      border-radius: 28px;
+      padding: 35px;
+      text-align: center;
+      transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 
+        0 15px 60px rgba(0, 191, 255, 0.1),
+        inset 0 0 30px rgba(0, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border-left: 6px solid #00bfff;
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+      height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      transform-style: preserve-3d;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-15px) scale(1.03) rotateX(5deg);
+      box-shadow: 
+        0 30px 80px rgba(0, 255, 255, 0.3),
+        inset 0 0 40px rgba(0, 255, 255, 0.1);
+      border-left-color: #00ffff;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+      transform: rotate(45deg);
+      animation: shineCard 6s infinite;
+    }
+
+    @keyframes shineCard {
+      0% { transform: translateX(-100%) rotate(45deg); }
+      100% { transform: translateX(100%) rotate(45deg); }
+    }
+
+    .stat-icon {
+      font-size: 3.2rem;
+      color: #00ffff;
+      margin-bottom: 18px;
+      text-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+      animation: pulseIcon 2.5s infinite alternate;
+    }
+
+    @keyframes pulseIcon {
+      from { transform: scale(1) translateY(0); opacity: 0.8; }
+      to { transform: scale(1.15) translateY(-8px); opacity: 1; }
+    }
+
+    .stat-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 3.5rem;
+      color: #00ffff;
+      margin: 12px 0;
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+      animation: pulseValue 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulseValue {
+      from { transform: translateY(0) scale(1); opacity: 1; }
+      to { transform: translateY(-8px) scale(1.08); opacity: 0.95; }
+    }
+
+    .stat-label {
+      font-size: 1rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      font-weight: 500;
+      margin-top: 15px;
+      font-family: 'Poppins', sans-serif;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+    }
+
+    /* === ACTIVITY FEED === */
+    .feed-container {
+      background: rgba(10, 10, 25, 0.7);
+      border: 1px solid rgba(0, 255, 255, 0.15);
+      border-radius: 28px;
+      padding: 30px;
+      margin-bottom: 50px;
+      box-shadow: 
+        0 15px 60px rgba(0, 191, 255, 0.1),
+        inset 0 0 35px rgba(0, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      height: 320px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feed-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 22px;
+      color: #00ffff;
+      font-size: 1.5rem;
+      font-weight: 600;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(0, 255, 255, 0.15);
+      position: relative;
+    }
+
+    .feed-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 60px;
+      height: 2px;
+      background: #00ffff;
+      animation: feedUnderline 2s infinite;
+    }
+
+    @keyframes feedUnderline {
+      0% { width: 0; }
+      50% { width: 60px; }
+      100% { width: 0; }
+    }
+
+    .feed-header i {
+      margin-right: 15px;
+      color: #00bfff;
+      font-size: 1.8rem;
+    }
+
+    #activity-feed {
+      height: calc(100% - 60px);
+      overflow-y: auto;
+      padding: 15px 0;
+      scrollbar-width: thin;
+      scrollbar-color: #00bfff transparent;
+    }
+
+    #activity-feed::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    #activity-feed::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    #activity-feed::-webkit-scrollbar-thumb {
+      background: #00bfff;
+      border-radius: 10px;
+      border: 3px solid transparent;
+    }
+
+    .list-group-item {
+      background: rgba(20, 20, 40, 0.6);
+      border: none;
+      margin: 15px 0;
+      padding: 20px 25px;
+      border-left: 6px solid #00bfff;
+      border-radius: 16px;
+      font-size: 1.1rem;
+      transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-start;
+      gap: 15px;
+      backdrop-filter: blur(5px);
+    }
+
+    .list-group-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.15), transparent);
+      animation: scanLine 4s infinite;
+    }
+
+    @keyframes scanLine {
+      from { left: -100%; }
+      to { left: 100%; }
+    }
+
+    .list-group-item.danger { border-left-color: #ff4d4d; }
+    .list-group-item.warning { border-left-color: #ffcc00; }
+    .list-group-item.success { border-left-color: #00ff88; }
+
+    .list-group-item:hover {
+      transform: translateX(15px) scale(1.02);
+      box-shadow: 0 0 40px rgba(0, 255, 255, 0.2);
+      background: rgba(30, 30, 60, 0.8);
+    }
+
+    .list-group-item span.time {
+      color: #00bfff;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-left: auto;
+      opacity: 0.8;
+    }
+
+    /* === NETWORK LINES + NEURAL NET === */
+    #network-lines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0.6;
+    }
+
+    .network-line {
+      position: absolute;
+      background: linear-gradient(90deg, transparent, #00ffff, transparent);
+      height: 1px;
+      border-radius: 50%;
+      animation: networkFlow 10s infinite linear;
+      opacity: 0.4;
+    }
+
+    @keyframes networkFlow {
+      0% { transform: translateX(-100%) translateY(0); opacity: 0; }
+      50% { opacity: 0.8; }
+      100% { transform: translateX(100%) translateY(0); opacity: 0; }
+    }
+
+    /* === NEURAL NETWORK VISUALIZER === */
+    #neural-net {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.1;
+      overflow: hidden;
+    }
+
+    .neuron {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #00bfff;
+      border-radius: 50%;
+      box-shadow: 0 0 15px rgba(0, 191, 255, 0.6);
+      animation: neuronPulse 3s infinite;
+    }
+
+    @keyframes neuronPulse {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.5); }
+    }
+
+    .synapse {
+      position: absolute;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #00bfff, transparent);
+      opacity: 0.2;
+      animation: synapseFlash 4s infinite;
+    }
+
+    @keyframes synapseFlash {
+      0%, 100% { opacity: 0.1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* === BLACK HOLE EFFECT === */
+    #blackhole {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 0, 0, 0.8) 0%, transparent 70%);
+      transform: translate(-50%, -50%);
+      z-index: 100;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.8s ease;
+    }
+
+    #blackhole.active {
+      width: 200px;
+      height: 200px;
+      opacity: 0.8;
+      box-shadow: 0 0 100px rgba(0, 0, 0, 0.8), 0 0 200px rgba(0, 0, 0, 0.5);
+    }
+
+    /* === PARTICLE TRAILS === */
+    .particle-trail {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: #00ffff;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0;
+      animation: trailFade 1.5s forwards;
+    }
+
+    @keyframes trailFade {
+      0% { transform: translate(0, 0) scale(1); opacity: 0.8; }
+      100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+    }
+
+    /* === BLOCK BUTTON === */
+    .btn-block {
+      background: linear-gradient(135deg, #ff0000, #cc0000);
+      border: none;
+      color: white;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: bold;
+      padding: 20px 60px;
+      border-radius: 70px;
+      font-size: 1.6rem;
+      box-shadow: 
+        0 0 50px rgba(255, 0, 0, 0.7),
+        0 0 100px rgba(255, 0, 0, 0.4);
+      transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      cursor: pointer;
+      letter-spacing: 3px;
+      margin-top: 40px;
+      display: inline-block;
+      border: 1px solid #ff0000;
+      position: relative;
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .btn-block::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+      transform: rotate(45deg);
+      animation: shineBtn 5s infinite;
+    }
+
+    @keyframes shineBtn {
+      0% { transform: translateX(-100%) rotate(45deg); }
+      100% { transform: translateX(100%) rotate(45deg); }
+    }
+
+    .btn-block:hover {
+      transform: translateY(-10px) scale(1.05);
+      box-shadow: 
+        0 0 80px rgba(255, 0, 0, 0.9),
+        0 0 150px rgba(255, 0, 0, 0.6);
+    }
+
+    .btn-block:active {
+      transform: translateY(-2px) scale(0.98);
+    }
+
+    /* === WATERMARK === */
+    .watermark {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 16px;
+      color: rgba(0, 255, 255, 0.15);
+      text-transform: uppercase;
+      letter-spacing: 8px;
+      pointer-events: none;
+      z-index: 999;
+      text-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+    }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 1200px) {
+      h1 { font-size: 3.2rem; }
+      .stat-value { font-size: 2.8rem; }
+      .stat-icon { font-size: 2.5rem; }
+      .btn-block { font-size: 1.4rem; padding: 18px 50px; }
+      #map { height: 550px; }
+    }
+
+    @media (max-width: 992px) {
+      h1 { font-size: 2.8rem; }
+      .stat-value { font-size: 2.4rem; }
+      .stat-icon { font-size: 2rem; }
+      .btn-block { font-size: 1.3rem; padding: 16px 45px; }
+      .feed-container { height: 280px; }
+      #map { height: 450px; }
+    }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 2.2rem; }
+      .stat-value { font-size: 2rem; }
+      .stat-icon { font-size: 1.8rem; }
+      .btn-block { font-size: 1.2rem; padding: 14px 40px; }
+      .feed-container { height: 250px; }
+      #map { height: 380px; }
+      .container { padding: 30px 15px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOADING SCREEN -->
+  <div class="loading-screen">
+    <div class="logo"></div>
+    <div class="loading-text">NCG THREAT MAP</div>
+    <div class="loader"></div>
+  </div>
+
+  <!-- BACKGROUND NEBULA -->
+  <div id="nebula"></div>
+
+  <!-- TIMELINE BAR -->
+  <div id="timeline"></div>
+
+  <!-- NEURAL NETWORK -->
+  <div id="neural-net"></div>
+
+  <!-- NETWORK LINES -->
+  <div id="network-lines"></div>
+
+  <!-- BLACK HOLE EFFECT -->
+  <div id="blackhole"></div>
+
+  <!-- Hacking Effect Overlay -->
+  <div id="hacking-effect"></div>
+
+  <!-- MAIN CONTAINER -->
+  <div class="container">
+    <h1>🌐 NCG THREAT MAP</h1>
+    <p class="subtitle">AI-Powered Cyber Threat Intelligence for Indonesia<br><small>Nusantara Cyber Guard</small></p>
+
+    <!-- LED Indicator -->
+    <div id="led"></div>
+
+    <!-- PETA -->
+    <div id="map"></div>
+
+    <!-- STATISTIK -->
+    <div class="row mb-4">
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-exclamation-diamond"></i></div>
+          <div class="stat-value" id="active-threats">0</div>
+          <div class="stat-label">Active Threats</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-geo-alt"></i></div>
+          <div class="stat-value" id="cities-targeted">0</div>
+          <div class="stat-label">Cities Targeted</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-shield-fill-check"></i></div>
+          <div class="stat-value" id="threat-clusters">0</div>
+          <div class="stat-label">Threat Clusters</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="stat-card">
+          <div class="stat-icon"><i class="bi bi-speedometer2"></i></div>
+          <div class="stat-value" id="last-updated">—</div>
+          <div class="stat-label">Last Updated</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEED AKTIVITAS -->
+    <div class="feed-container">
+      <div class="feed-header">
+        <i class="bi bi-chat-dots"></i> Live Activity Feed
+      </div>
+      <ul id="activity-feed" class="list-group">
+        <li class="list-group-item">✅ System online. Awaiting threat data...</li>
+      </ul>
+    </div>
+
+    <!-- TOMBOL BLOCK -->
+    <div class="text-center">
+      <button class="btn-block" onclick="blockAllThreats()">
+        🔴 BLOCK ALL THREATS
+      </button>
+    </div>
+  </div>
+
+  <!-- Watermark -->
+  <div class="watermark">⚠️ SIMULASI - DATA MOCK UNTUK DEMO</div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Attack Simulator Script -->
+  <script src="attack-simulator.js"></script>
+
+  <!-- ANIMASI LANJUTAN -->
+  <script>
+    // Generate stars and nebula particles
+    const nebula = document.getElementById('nebula');
+    const neuralNet = document.getElementById('neural-net');
+    const timeline = document.getElementById('timeline');
+    const blackhole = document.getElementById('blackhole');
+    const hackingEffect = document.getElementById('hacking-effect');
+
+    // Create 120 stars
+    for (let i = 0; i < 120; i++) {
+      const star = document.createElement('div');
+      star.classList.add('star');
+      star.style.width = Math.random() * 2 + 1 + 'px';
+      star.style.height = star.style.width;
+      star.style.left = Math.random() * 100 + '%';
+      star.style.top = Math.random() * 100 + '%';
+      star.style.opacity = Math.random() * 0.7 + 0.2;
+      star.style.setProperty('--duration', (Math.random() * 4 + 1) + 's');
+      nebula.appendChild(star);
+    }
+
+    // Create 20 nebula particles
+    for (let i = 0; i < 20; i++) {
+      const particle = document.createElement('div');
+      particle.classList.add('nebula-particle');
+      particle.style.width = Math.random() * 150 + 100 + 'px';
+      particle.style.height = particle.style.width;
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.top = Math.random() * 100 + '%';
+      particle.style.setProperty('--duration', (Math.random() * 30 + 20) + 's');
+      particle.style.setProperty('--dx', (Math.random() * 300 - 150) + 'px');
+      particle.style.setProperty('--dy', (Math.random() * 300 - 150) + 'px');
+      nebula.appendChild(particle);
+    }
+
+    // Create 15 neurons for neural net
+    for (let i = 0; i < 15; i++) {
+      const neuron = document.createElement('div');
+      neuron.classList.add('neuron');
+      neuron.style.left = Math.random() * 100 + '%';
+      neuron.style.top = Math.random() * 100 + '%';
+      neuron.style.animationDelay = (Math.random() * 2) + 's';
+      neuralNet.appendChild(neuron);
+    }
+
+    // Create 20 synapses
+    for (let i = 0; i < 20; i++) {
+      const synapse = document.createElement('div');
+      synapse.classList.add('synapse');
+      synapse.style.width = Math.random() * 150 + 50 + 'px';
+      synapse.style.left = Math.random() * 100 + '%';
+      synapse.style.top = Math.random() * 100 + '%';
+      synapse.style.transform = `rotate(${Math.random() * 360}deg)`;
+      synapse.style.animationDelay = (Math.random() * 3) + 's';
+      neuralNet.appendChild(synapse);
+    }
+
+    // Generate 10 animated network lines
+    for (let i = 0; i < 10; i++) {
+      const line = document.createElement('div');
+      line.classList.add('network-line');
+      line.style.width = Math.random() * 300 + 100 + 'px';
+      line.style.top = Math.random() * 100 + '%';
+      line.style.left = Math.random() * 100 + '%';
+      line.style.animationDelay = (Math.random() * 5) + 's';
+      document.getElementById('network-lines').appendChild(line);
+    }
+
+    // Add timeline points
+    function addTimelinePoint() {
+      const point = document.createElement('div');
+      point.classList.add('timeline-point');
+      point.style.bottom = Math.random() * 80 + '%';
+      timeline.appendChild(point);
+      setTimeout(() => point.classList.add('active'), 10);
+      setTimeout(() => point.remove(), 8000);
+    }
+
+    // Scroll-driven parallax
+    let lastScrollTop = 0;
+    window.addEventListener('scroll', () => {
+      const st = window.pageYOffset || document.documentElement.scrollTop;
+      if (st > lastScrollTop) {
+        nebula.style.backgroundPositionY = `${st * 0.1}px`;
+      } else {
+        nebula.style.backgroundPositionY = `${st * 0.05}px`;
+      }
+      lastScrollTop = st <= 0 ? 0 : st;
+
+      if (st > 100 && st < 800) {
+        addTimelinePoint();
+      }
+    });
+
+    // Show main container after loading screen
+    setTimeout(() => {
+      document.querySelector('.loading-screen').classList.add('hidden');
+      document.querySelector('.container').classList.add('show');
+    }, 3000);
+
+    // Store original block function
+    window.originalBlockAllThreats = window.blockAllThreats;
+  </script>
+</body>
+</html>
